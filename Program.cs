@@ -1,5 +1,5 @@
-﻿using Buildalyzer;
-using Buildalyzer.Workspaces;
+﻿using Microsoft.Build.Locator;
+using Microsoft.CodeAnalysis.MSBuild;
 
 class MainProject
 {
@@ -8,13 +8,19 @@ class MainProject
 
     private static async Task GetProjects()
     {
-        var manager = new AnalyzerManager();
-        var analyzer = manager.GetProject(_projectPath);
-        var result = analyzer.Build();
-        var workspace = analyzer.GetWorkspace();
-        // var workspace = MSBuildWorkspace.Create();
-        // var currSolution = await workspace.OpenSolutionAsync(_solutionPath);
-        // var projects = currSolution.Projects;
+        // var manager = new AnalyzerManager();
+        // var analyzer = manager.GetProject(@"C:\MyCode\MyProject.csproj");
+        // var workspace = analyzer.GetWorkspace();
+        MSBuildLocator.RegisterDefaults();
+        var workspace = MSBuildWorkspace.Create();
+        var currSolution = await workspace.OpenSolutionAsync(_solutionPath);
+        var project = currSolution.Projects.First();
+        foreach (var document in project.Documents)
+        {
+            var syntaxTree = await document.GetSyntaxTreeAsync();
+            var root = await syntaxTree?.GetRootAsync()!;
+        }
+        var projects = await project.GetCompilationAsync();
         //var currProject = await workspace.OpenProjectAsync(projectPath);
         //Console.WriteLine(string.Join('\n', projects.Select(p => p.Name)));
         //ProjectAnalysis(currProject);
