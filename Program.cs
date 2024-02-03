@@ -1,4 +1,6 @@
 ﻿using Microsoft.Build.Locator;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.MSBuild;
 
 class MainProject
@@ -8,9 +10,6 @@ class MainProject
 
     private static async Task GetProjects()
     {
-        // var manager = new AnalyzerManager();
-        // var analyzer = manager.GetProject(@"C:\MyCode\MyProject.csproj");
-        // var workspace = analyzer.GetWorkspace();
         MSBuildLocator.RegisterDefaults();
         var workspace = MSBuildWorkspace.Create();
         var currSolution = await workspace.OpenSolutionAsync(_solutionPath);
@@ -19,6 +18,7 @@ class MainProject
         {
             var syntaxTree = await document.GetSyntaxTreeAsync();
             var root = await syntaxTree?.GetRootAsync()!;
+            var compRoot = root as CompilationUnitSyntax;
         }
         var projects = await project.GetCompilationAsync();
         //var currProject = await workspace.OpenProjectAsync(projectPath);
