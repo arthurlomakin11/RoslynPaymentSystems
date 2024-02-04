@@ -1,29 +1,131 @@
 ﻿using Microsoft.Build.Locator;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.MSBuild;
 
 class MainProject
 {
     private static string _solutionPath = @"C:\Users\Artur\RiderProjects\PaymentsProvider2\PaymentProvider.sln";
-    private static string _projectPath = @"C:\Users\Artur\RiderProjects\PaymentsProvider2\src\PaymentSystems\PaymentSystem.AdyenCreditCard\PaymentSystem.AdyenCreditCard.csproj";
+    private static string _paymentSystemsPath = @"C:\Users\Artur\RiderProjects\PaymentsProvider2\src\PaymentSystems";
 
     private static async Task GetProjects()
     {
         MSBuildLocator.RegisterDefaults();
         var workspace = MSBuildWorkspace.Create();
-        var currSolution = await workspace.OpenSolutionAsync(_solutionPath);
-        var project = currSolution.Projects.First();
-        foreach (var document in project.Documents)
+
+        var files = Directory
+            .GetFiles(_paymentSystemsPath, "*.csproj", SearchOption.AllDirectories)
+            .OrderBy(file => file)
+            .Where(file => !file.Contains("_Base"))
+            .ToList();
+
+        var catchStrings = new List<string>();
+        var catchOrderedStrings = new List<string>();
+        
+        foreach (var filePath in files)
         {
-            var syntaxTree = await document.GetSyntaxTreeAsync();
-            var root = await syntaxTree?.GetRootAsync()!;
-            var compRoot = root as CompilationUnitSyntax;
+            var project = await workspace.OpenProjectAsync(filePath);
+            foreach (var document in project.Documents)
+            {
+                var syntaxTree = await document.GetSyntaxTreeAsync();
+                var root = await syntaxTree?.GetRootAsync()!;
+                var compRoot = root as CompilationUnitSyntax;
+                var namespaceDeclarations = compRoot!.Members
+                    .OfType<FileScopedNamespaceDeclarationSyntax>()
+                    .ToList();
+                namespaceDeclarations.ForEach(namespaceDeclaration =>
+                {
+                    namespaceDeclaration.Members
+                        .OfType<ClassDeclarationSyntax>()
+                        .ToList()
+                        .ForEach(classDeclaration =>
+                        {
+                            classDeclaration.Members
+                                .OfType<MethodDeclarationSyntax>()
+                                .Where(methodDeclaration => methodDeclaration.Identifier.Text 
+                                    is "CreatePayInRequestAsync" or "ProcessPayInCallbackAsync")
+                                .ToList()
+                                .ForEach(methodDeclaration =>
+                                {
+                                    var methodDeclarationBody = methodDeclaration.Body;
+                                    if (methodDeclarationBody is null) return;
+                                    
+                                    var tryStatements = methodDeclarationBody.Statements.OfType<TryStatementSyntax>();
+                                    var tryStatement = tryStatements.FirstOrDefault();
+                                    tryStatement?.Catches
+                                        .ToList()
+                                        .ForEach(catchSyntax =>
+                                        {
+                                            var catchSyntaxString = catchSyntax.ToFullString();
+                                            catchStrings.Add(catchSyntaxString);
+                                            
+                                            
+                                            var catchOrdered = catchSyntax.Block.Statements
+                                                .OrderBy(s => s.ToFullString());
+                                            var catchOrderedString = string.Join("\n", catchOrdered);
+                                            
+                                            catchOrderedStrings.Add(catchOrderedString);
+                                        });
+                                });
+                        });
+                });
+            }
+            // var compilation = await project.GetCompilationAsync();
+            //ProjectAnalysis(currProject);
         }
-        var projects = await project.GetCompilationAsync();
-        //var currProject = await workspace.OpenProjectAsync(projectPath);
-        //Console.WriteLine(string.Join('\n', projects.Select(p => p.Name)));
-        //ProjectAnalysis(currProject);
+
+        var catchStringHashSet = catchStrings
+            .Select(el => el.Trim())
+            .Select(el => el.Replace("\r", string.Empty))
+            .Select(el => el.Replace("\n", string.Empty))
+            .Select(el => el.Replace(";", ";\n"))
+            .Select(el => el.Replace("processingResponse", "response"))
+            .Select(el => el.Replace("paymentResponse", "response"))
+            .Select(el =>
+            {
+                var splitString = el.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                return string.Join(' ', splitString);
+            })
+            .ToHashSet()
+            .OrderBy(el => el)
+            .ToList();
+        
+        var catchOrderedStringHashSet = catchOrderedStrings
+            .Select(el => el.Trim())
+            .Select(el => el.Replace("\r", string.Empty))
+            .Select(el => el.Replace("\n", string.Empty))
+            .Select(el => el.Replace(";", ";\n"))
+            .Select(el => el.Replace("processingResponse", "response"))
+            .Select(el => el.Replace("paymentResponse", "response"))
+            .Select(el =>
+            {
+                var splitString = el.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                return string.Join(' ', splitString);
+            })
+            .ToHashSet()
+            .OrderBy(el => el)
+            .ToList();
+        
+        Console.WriteLine($"catchStrings.Count: {catchStrings.Count}");
+        Console.WriteLine($"catchStringHashSet.Count: {catchStringHashSet.Count}");
+    }
+
+    private static string? Difference(string? str1, string? str2)
+    {
+        if (str1 == null)
+        {
+            return str2;
+        }
+        if (str2 == null)
+        {
+            return str1;
+        }
+    
+        var set1 = str1.Split(' ').Distinct().ToList();
+        var set2 = str2.Split(' ').Distinct().ToList();
+
+        var diff = set2.Count > set1.Count ? set2.Except(set1).ToList() : set1.Except(set2).ToList();
+
+        return string.Join("", diff);
     }
 
     // static async void ProjectAnalysis(Project project)
