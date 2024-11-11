@@ -5,7 +5,7 @@ using Microsoft.CodeAnalysis.MSBuild;
 class MainProject
 {
     private static string _solutionPath = @"C:\Users\Artur\RiderProjects\PaymentsProvider2\PaymentProvider.sln";
-    private static string _paymentSystemsPath = @"C:\Users\Artur\RiderProjects\PaymentsProvider2\src\PaymentSystems";
+    private static readonly string _paymentSystemsPath = @"C:\Users\Artur\RiderProjects\PaymentsProvider2\src\PaymentSystems";
 
     private static async Task GetProjects()
     {
@@ -24,6 +24,8 @@ class MainProject
         foreach (var filePath in files)
         {
             var project = await workspace.OpenProjectAsync(filePath);
+            // var compilation = await project.GetCompilationAsync();
+            // compilation.getSy
             foreach (var document in project.Documents)
             {
                 var syntaxTree = await document.GetSyntaxTreeAsync();
@@ -73,40 +75,31 @@ class MainProject
             //ProjectAnalysis(currProject);
         }
 
-        var catchStringHashSet = catchStrings
-            .Select(el => el.Trim())
-            .Select(el => el.Replace("\r", string.Empty))
-            .Select(el => el.Replace("\n", string.Empty))
-            .Select(el => el.Replace(";", ";\n"))
-            .Select(el => el.Replace("processingResponse", "response"))
-            .Select(el => el.Replace("paymentResponse", "response"))
-            .Select(el =>
-            {
-                var splitString = el.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                return string.Join(' ', splitString);
-            })
-            .ToHashSet()
-            .OrderBy(el => el)
-            .ToList();
+        var catchStringHashSet = ProcessStrings(catchStrings);
         
-        var catchOrderedStringHashSet = catchOrderedStrings
-            .Select(el => el.Trim())
-            .Select(el => el.Replace("\r", string.Empty))
-            .Select(el => el.Replace("\n", string.Empty))
-            .Select(el => el.Replace(";", ";\n"))
-            .Select(el => el.Replace("processingResponse", "response"))
-            .Select(el => el.Replace("paymentResponse", "response"))
-            .Select(el =>
-            {
-                var splitString = el.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                return string.Join(' ', splitString);
-            })
-            .ToHashSet()
-            .OrderBy(el => el)
-            .ToList();
+        var catchOrderedStringHashSet = ProcessStrings(catchOrderedStrings);
         
         Console.WriteLine($"catchStrings.Count: {catchStrings.Count}");
         Console.WriteLine($"catchStringHashSet.Count: {catchStringHashSet.Count}");
+    }
+
+    private static List<string> ProcessStrings(IEnumerable<string> list)
+    {
+        return list
+            .Select(el => el.Trim())
+            .Select(el => el.Replace("\r", string.Empty))
+            .Select(el => el.Replace("\n", string.Empty))
+            .Select(el => el.Replace(";", ";\n"))
+            .Select(el => el.Replace("processingResponse", "response"))
+            .Select(el => el.Replace("paymentResponse", "response"))
+            .Select(el =>
+            {
+                var splitString = el.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                return string.Join(' ', splitString);
+            })
+            .ToHashSet()
+            .OrderBy(el => el)
+            .ToList();
     }
 
     private static string? Difference(string? str1, string? str2)
